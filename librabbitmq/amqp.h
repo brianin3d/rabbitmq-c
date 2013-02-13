@@ -467,6 +467,12 @@ AMQP_CALL amqp_login(amqp_connection_state_t state, char const *vhost,
             int channel_max, int frame_max, int heartbeat,
 	          amqp_sasl_method_enum sasl_method, ...);
 
+AMQP_PUBLIC_FUNCTION
+amqp_rpc_reply_t
+AMQP_CALL amqp_login_with_properties(amqp_connection_state_t state, char const *vhost,
+        int channel_max, int frame_max, int heartbeat,
+        amqp_table_t *properties, amqp_sasl_method_enum sasl_method, ...);
+
 struct amqp_basic_properties_t_;
 
 AMQP_PUBLIC_FUNCTION
@@ -540,11 +546,11 @@ struct amqp_connection_info {
 };
 
 AMQP_PUBLIC_FUNCTION
-void 
+void
 AMQP_CALL amqp_default_connection_info(struct amqp_connection_info *parsed);
 
 AMQP_PUBLIC_FUNCTION
-int 
+int
 AMQP_CALL amqp_parse_url(char *url, struct amqp_connection_info *parsed);
 
 AMQP_END_DECLS
