@@ -58,6 +58,7 @@ int main(int argc, const char **argv)
 	char *routing_key = NULL;
 	char *content_type = NULL;
 	char *content_encoding = NULL;
+	char *reply_to = NULL;
 	char *body = NULL;
 	amqp_basic_properties_t props;
 	amqp_bytes_t body_bytes;
@@ -73,6 +74,8 @@ int main(int argc, const char **argv)
 		 "use the persistent delivery mode", NULL},
 		{"content-type", 'C', POPT_ARG_STRING, &content_type, 0,
 		 "the content-type for the message", "content type"},
+		{"reply-to", 't', POPT_ARG_STRING, &reply_to, 0,
+		 "the replyTo to use for the message", "reply to"},
 		{"content-encoding", 'E', POPT_ARG_STRING,
 		 &content_encoding, 0,
 		 "the content-encoding for the message", "content encoding"},
@@ -102,6 +105,11 @@ int main(int argc, const char **argv)
 	if (content_encoding) {
 		props._flags |= AMQP_BASIC_CONTENT_ENCODING_FLAG;
 		props.content_encoding = amqp_cstring_bytes(content_encoding);
+	}
+
+	if (reply_to) {
+		props._flags |= AMQP_BASIC_REPLY_TO_FLAG;
+		props.reply_to = amqp_cstring_bytes(reply_to);
 	}
 
 	conn = make_connection();
