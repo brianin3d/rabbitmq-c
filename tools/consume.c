@@ -34,8 +34,11 @@
 #include "config.h"
 #endif
 
+#define ENABLE_MULTIPLE_KEY
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "process.h"
@@ -112,8 +115,13 @@ static amqp_bytes_t setup_queue(amqp_connection_state_t conn,
 	return queue_bytes;
 }
 
+#ifdef ENABLE_MULTIPLE_KEY
+static void do_consume(amqp_connection_state_t conn, int queue_bytes_count, amqp_bytes_t *queue,
+		       int no_ack, int count, const char * const *argv)
+#else
 static void do_consume(amqp_connection_state_t conn, amqp_bytes_t queue,
 		       int no_ack, int count, const char * const *argv)
+#endif
 {
 	int i;
 
@@ -122,9 +130,17 @@ static void do_consume(amqp_connection_state_t conn, amqp_bytes_t queue,
 	    && !amqp_basic_qos(conn, 1, 0, count, 0))
 		die_rpc(amqp_get_rpc_reply(conn), "basic.qos");
 
+#ifdef ENABLE_MULTIPLE_KEY
+	for ( i = 0 ; i < queue_bytes_count ; i++ ) {
+		if (!amqp_basic_consume(conn, 1, queue[i], amqp_empty_bytes, 0, no_ack, 0, amqp_empty_table))  {
+			die_rpc(amqp_get_rpc_reply(conn), "basic.consume");
+		}
+	}
+#else
 	if (!amqp_basic_consume(conn, 1, queue, amqp_empty_bytes, 0, no_ack,
 				0, amqp_empty_table))
 		die_rpc(amqp_get_rpc_reply(conn), "basic.consume");
+#endif
 
 	for (i = 0; count < 0 || i < count; i++) {
 		amqp_frame_t frame;
@@ -164,7 +180,14 @@ int main(int argc, const char **argv)
 	int declare = 0;
 	int no_ack = 0;
 	int count = -1;
+#ifdef ENABLE_MULTIPLE_KEY
+	char *tmp_routing_key;
+	char *routing_keyz;
+	int queue_bytes_count;
+	amqp_bytes_t queue_bytes[ 256 ];
+#else
 	amqp_bytes_t queue_bytes;
+#endif
 
 	struct poptOption options[] = {
 		INCLUDE_OPTIONS(connect_options),
@@ -196,8 +219,20 @@ int main(int argc, const char **argv)
 	}
 
 	conn = make_connection();
+
+#ifdef ENABLE_MULTIPLE_KEY
+	queue_bytes_count = 0;
+	routing_keyz = strdup( routing_key );
+	while ( NULL != ( tmp_routing_key = strsep( &routing_keyz, "," ) ) && queue_bytes_count < 255 ) {
+		//fprintf( stderr, "listening to: %s\n", tmp_routing_key );
+		queue_bytes[ queue_bytes_count++ ] = setup_queue(conn, queue, exchange, tmp_routing_key, declare);
+	}
+	do_consume(conn, queue_bytes_count, queue_bytes, no_ack, count, cmd_argv);
+#else
 	queue_bytes = setup_queue(conn, queue, exchange, routing_key, declare);
 	do_consume(conn, queue_bytes, no_ack, count, cmd_argv);
+#endif
+
 	close_connection(conn);
 	return 0;
 
