@@ -40,6 +40,8 @@
 
 #include "common.h"
 
+#define MAX_LINE_LENGTH 1024 * 32
+
 static void do_publish(amqp_connection_state_t conn,
                        char *exchange, char *routing_key,
 		       amqp_basic_properties_t *props, amqp_bytes_t body)
@@ -63,6 +65,7 @@ int main(int argc, const char **argv)
 	amqp_basic_properties_t props;
 	amqp_bytes_t body_bytes;
 	int delivery = 1; /* non-persistent by default */
+	int line_buffered = 0;
 
 	struct poptOption options[] = {
 		INCLUDE_OPTIONS(connect_options),
@@ -76,6 +79,8 @@ int main(int argc, const char **argv)
 		 "the content-type for the message", "content type"},
 		{"reply-to", 't', POPT_ARG_STRING, &reply_to, 0,
 		 "the replyTo to use for the message", "reply to"},
+		{"line-buffered", 'l', POPT_ARG_VAL, &line_buffered, 2,
+		 "treat each line from standard in as a separate message", NULL},
 		{"content-encoding", 'E', POPT_ARG_STRING,
 		 &content_encoding, 0,
 		 "the content-encoding for the message", "content encoding"},
@@ -114,15 +119,29 @@ int main(int argc, const char **argv)
 
 	conn = make_connection();
 
-	if (body)
+	if (body) {
 		body_bytes = amqp_cstring_bytes(body);
-	else
-		body_bytes = read_all(0);
+	} else {
+		if ( line_buffered ) {
+			body_bytes.bytes = ( char * ) malloc( MAX_LINE_LENGTH );
+			while ( fgets( body_bytes.bytes, MAX_LINE_LENGTH, stdin ) ) {
+				body_bytes.len = strlen( body_bytes.bytes );
+				( ( char * ) body_bytes.bytes )[ body_bytes.len - 1 ] = 0;
+				//fprintf( stderr, "send>%s\n", ( char * ) body_bytes.bytes );
+				do_publish(conn, exchange, routing_key, &props, body_bytes);
+			}
+		} else {
+			body_bytes = read_all(0);
+		}
+	}
 
-	do_publish(conn, exchange, routing_key, &props, body_bytes);
+	if ( !line_buffered ) { 
+		do_publish(conn, exchange, routing_key, &props, body_bytes);
+	}
 
-	if (!body)
+	if (!body) {
 		free(body_bytes.bytes);
+	}
 
 	close_connection(conn);
 	return 0;
