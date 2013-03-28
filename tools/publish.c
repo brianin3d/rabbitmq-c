@@ -126,8 +126,6 @@ int main(int argc, const char **argv)
 			body_bytes.bytes = ( char * ) malloc( MAX_LINE_LENGTH );
 			while ( fgets( body_bytes.bytes, MAX_LINE_LENGTH, stdin ) ) {
 				body_bytes.len = strlen( body_bytes.bytes );
-				( ( char * ) body_bytes.bytes )[ body_bytes.len - 1 ] = 0;
-				//fprintf( stderr, "send>%s\n", ( char * ) body_bytes.bytes );
 				do_publish(conn, exchange, routing_key, &props, body_bytes);
 			}
 		} else {
